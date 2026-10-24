@@ -32,6 +32,10 @@ USB в режиме устройства (NCM + ACM) и SSH, регулятор�
   слоты, восстановление)
 - [docs/boot-attempts.md](docs/boot-attempts.md) — попытки загрузки 1–4: что
   пробовали, что произошло, что помогло
+- [docs/DUALBOOT.md](docs/DUALBOOT.md) — Android и mainline Linux рядом: меню
+  titan2-boot, раздел `linux`, защита разделов Android, установка (на
+  английском); [docs/DUALBOOT-ROLLBACK.md](docs/DUALBOOT-ROLLBACK.md) — как
+  всё вернуть
 
 Железо:
 

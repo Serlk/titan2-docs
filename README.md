@@ -32,6 +32,10 @@ Boot:
   required and forbidden nodes, firmware loader nodes, slots, recovery)
 - [docs/boot-attempts.md](docs/boot-attempts.md) - boot attempts 1-4: what was
   tried, what happened, what fixed it
+- [docs/DUALBOOT.md](docs/DUALBOOT.md) - Android and mainline Linux side by
+  side: the titan2-boot menu, the `linux` partition, protection of Android's
+  partitions, installation; [docs/DUALBOOT-ROLLBACK.md](docs/DUALBOOT-ROLLBACK.md)
+  - how to undo it
 
 Hardware:
 
