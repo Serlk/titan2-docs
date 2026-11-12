@@ -16,7 +16,7 @@ v3.24, tested on one phone (Titan 2, firmware V01.00.14, crDroid 16 as the Andro
 |---|---|---|
 | VoLTE calls, outgoing and incoming | **Works** | through ModemManager (our `mtk-ccci` plugin), AMR-WB, audio both ways through the earpiece and the microphone; IMS set up by the plugin; both SIMs register. Not tested: emergency calls, calls after every kind of cold boot, incoming on SIM 2, loudspeaker in a call |
 | Calls without LTE (2G/3G, CSFB) | **Not tested** | |
-| SMS | **Works** | receiving and sending with the screen on. Receiving while the phone sleeps: not verified. SMS on SIM 2 are not read yet |
+| SMS | **Works** | receiving and sending; messages also arrive while the phone sleeps (the modem's new-SMS indication wakes it). SMS on SIM 2 are not read yet |
 | MMS | **Not yet** | |
 | Mobile data | **Works** | LTE through NetworkManager, about 17-36 Mbit/s measured; network preference 5G/LTE first (5G not verified on the air). IPv4 only; data on SIM 2 not tested; data right after waking from sleep not verified |
 | Waking up for a call or SMS while asleep | **Partly** | the modem wakes the system in the kernel; the whole path (sleep, ring, screen on) has not been verified end to end |
@@ -56,7 +56,7 @@ v3.24, tested on one phone (Titan 2, firmware V01.00.14, crDroid 16 as the Andro
 
 | function | state | notes |
 |---|---|---|
-| Accelerometer, light, proximity | **Works** | through the sensor hub and iio-sensor-proxy (`monitor-sensor`); calibration not applied (light values are uncalibrated) |
+| Accelerometer, light, proximity | **Works** | through the sensor hub and iio-sensor-proxy (`monitor-sensor`); calibration not applied (light values are uncalibrated). Screen rotation follows the accelerometer; automatic brightness works but its curve still needs tuning; the screen turns off at the ear during calls |
 | Cameras | **Works** ([titan2-camera](https://github.com/Serlk/titan2-camera)) | all three (IMX766, Hi-847, S5KGD1SP); photos with GNOME Snapshot, qcam, `cam`; image processing in software. No video recording (no hardware video codec yet) |
 | GNSS | **Works** ([titan2-gnss](https://github.com/Serlk/titan2-gnss)) | fixes with many satellites, position through GeoClue, A-GPS data download. Time to first fix not measured; the speed value was wrong in the last test |
 | Fingerprint | **Not yet** ([titan2-fingerprint](https://github.com/Serlk/titan2-fingerprint)) | the TEE and the sensor HAL start, the touch interrupt arrives in the kernel, but the HAL ignores it, so no finger is detected |
@@ -77,7 +77,7 @@ v3.24, tested on one phone (Titan 2, firmware V01.00.14, crDroid 16 as the Andro
 - Sleep current about 80 mA (see above): expect a much shorter standby time than on Android.
 - The display must not be put behind the IOMMU (`all-iommu` entry): garbage on the screen.
 - After a failed modem start, the modem stays in the `failed` state until a reboot.
-- SMS: messages to SIM 2 are not read; delivery while asleep is not verified.
+- SMS: messages to SIM 2 are not read.
 - Bluetooth driver not loaded automatically; Bluetooth and Wi-Fi together at boot are not
   verified.
 - The menu shows only the first entries of `extlinux.conf` (12 or more, depending on the
