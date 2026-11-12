@@ -78,19 +78,28 @@ cd titan2-tools
 
 ## 4. Тулчейн и сборочный контейнер
 
-Ядро не собирается clang 17; нужен готовый clang AOSP **r574158** (clang 21) в
-`toolchains/clang-r574158`. Это каталог `clang-r574158` в
-<https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86>; gitiles отдаёт один
-каталог архивом (ссылка «tgz» на странице каталога, адрес вида
-`.../linux-x86/+archive/refs/heads/<ветка>/clang-r574158.tar.gz`):
+Ядро не собирается clang 17, нужен **clang 21**. Проще всего взять официальный выпуск LLVM с GitHub
+([llvmorg-21.1.8](https://github.com/llvm/llvm-project/releases/tag/llvmorg-21.1.8), файл `LLVM-21.1.8-Linux-X64.tar.xz`, около 2 ГБ) — ядро им собирается без
+ошибок. Путь к компилятору задаёт `CLANG_DIR` (по умолчанию `toolchains/clang-r574158`):
 
 ```sh
-mkdir -p toolchains/clang-r574158
-tar -xzf clang-r574158.tar.gz -C toolchains/clang-r574158
-toolchains/clang-r574158/bin/clang --version      # clang version 21...
+mkdir -p toolchains
+curl -L -o toolchains/LLVM-21.1.8-Linux-X64.tar.xz \
+  https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz
+echo "b3b7f2801d15d50736acea3c73982994d025b01c2f035b91ae3b49d1b575732b  toolchains/LLVM-21.1.8-Linux-X64.tar.xz" | sha256sum -c -
+mkdir -p toolchains/llvm-21.1.8
+tar -xJf toolchains/LLVM-21.1.8-Linux-X64.tar.xz -C toolchains/llvm-21.1.8 --strip-components=1
+toolchains/llvm-21.1.8/bin/clang --version        # clang version 21.1.8
+export CLANG_DIR=$PWD/toolchains/llvm-21.1.8      # для scripts/build-mainline.sh
 docker build -t titan2-kbuild docker/             # контейнер, которым пользуются все скрипты
-make -C tools CC=$PWD/toolchains/clang-r574158/bin/clang     # мелкие статические утилиты
+make -C tools CC=$CLANG_DIR/bin/clang             # мелкие статические утилиты
 ```
+
+Выпуск LLVM с GitHub использует системную `libxml2.so.2`: в контейнере она есть (docker/Dockerfile),
+для `make -C tools` на самом ПК поставьте пакет `libxml2` (Debian/Ubuntu — `libxml2`, Fedora — `libxml2`,
+Arch — `libxml2`). Если у вас уже есть готовый clang AOSP **r574158** (им собираем мы, он самодостаточный и `libxml2` не
+требует), положите его в `toolchains/clang-r574158` — тогда `CLANG_DIR` не нужен. На ветке `main`
+репозитория `prebuilts/clang` этой версии больше нет, поэтому скачивать стоит LLVM с GitHub.
 
 ## 5. Ядро
 

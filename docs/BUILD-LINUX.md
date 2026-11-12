@@ -80,19 +80,27 @@ cd titan2-tools
 
 ## 4. Toolchain and build container
 
-The kernel does not build with clang 17; it needs the AOSP prebuilt **clang r574158**
-(clang 21) in `toolchains/clang-r574158`. It is the directory `clang-r574158` of
-<https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86>; gitiles can give
-you that one directory as a tarball (the "tgz" link on the directory page, a URL of the form
-`.../linux-x86/+archive/refs/heads/<branch>/clang-r574158.tar.gz`):
+The kernel does not build with clang 17; it needs **clang 21**. The simplest is the official LLVM
+release on GitHub ([llvmorg-21.1.8](https://github.com/llvm/llvm-project/releases/tag/llvmorg-21.1.8), file `LLVM-21.1.8-Linux-X64.tar.xz`, about 2 GB); the kernel
+builds with it without errors. `CLANG_DIR` selects the compiler (default `toolchains/clang-r574158`):
 
 ```sh
-mkdir -p toolchains/clang-r574158
-tar -xzf clang-r574158.tar.gz -C toolchains/clang-r574158
-toolchains/clang-r574158/bin/clang --version      # clang version 21...
+mkdir -p toolchains
+curl -L -o toolchains/LLVM-21.1.8-Linux-X64.tar.xz \
+  https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz
+echo "b3b7f2801d15d50736acea3c73982994d025b01c2f035b91ae3b49d1b575732b  toolchains/LLVM-21.1.8-Linux-X64.tar.xz" | sha256sum -c -
+mkdir -p toolchains/llvm-21.1.8
+tar -xJf toolchains/LLVM-21.1.8-Linux-X64.tar.xz -C toolchains/llvm-21.1.8 --strip-components=1
+toolchains/llvm-21.1.8/bin/clang --version        # clang version 21.1.8
+export CLANG_DIR=$PWD/toolchains/llvm-21.1.8      # for scripts/build-mainline.sh
 docker build -t titan2-kbuild docker/             # the build container used by every script
-make -C tools CC=$PWD/toolchains/clang-r574158/bin/clang     # small static helpers
+make -C tools CC=$CLANG_DIR/bin/clang             # small static helpers
 ```
+
+The GitHub LLVM release uses the system `libxml2.so.2`: the container has it (docker/Dockerfile); for
+`make -C tools` on the PC itself install the `libxml2` package. If you already have the AOSP prebuilt **clang r574158** (what we build with; it is self-contained and
+needs no `libxml2`), put it into `toolchains/clang-r574158`, then `CLANG_DIR` is not needed. That version
+is no longer on the `main` branch of AOSP `prebuilts/clang`, so download the GitHub LLVM release instead.
 
 ## 5. The kernel
 
