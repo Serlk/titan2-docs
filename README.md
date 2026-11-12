@@ -120,3 +120,5 @@ firmware or blobs are included.
 ## License
 
 GPL-2.0-or-later, see [LICENSE](LICENSE). Copyright (c) 2026 serlk.
+
+Licensing: [LICENSE](LICENSE) (GPL-2.0), per-file details in [LICENSING.md](LICENSING.md).

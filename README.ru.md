@@ -122,3 +122,5 @@ Dimensity 7300): как его собрать, как поставить ряд�
 ## Лицензия
 
 GPL-2.0-or-later, см. [LICENSE](LICENSE). Copyright (c) 2026 serlk.
+
+Лицензии: [LICENSE](LICENSE) (GPL-2.0), подробности по файлам — в [LICENSING.md](LICENSING.md).
