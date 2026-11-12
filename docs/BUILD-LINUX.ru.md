@@ -168,6 +168,7 @@ e2fsck, …) и проверяет их подписи ключом Alpine из 
 
 ```sh
 scripts/t2-repo.sh keygen                  # один раз: out/t2-repo-keys/t2-repo.rsa(.pub); сохраните
+make -C ../titan2-fingerprint dist; make -C ../titan2-gnss dist     # их архивы исходников
 scripts/t2-repo.sh aport tools/aports/titan2-vendor-runtime \
     ../titan2-fingerprint/aports/titan2-fingerprint \
     ../titan2-gnss/aports/titan2-gnss ../titan2-gnss/aports/titan2-epo   # -> out/t2-packages
