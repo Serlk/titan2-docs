@@ -1,6 +1,9 @@
 # Android and mainline Linux side by side on the Titan 2
 
-A boot menu ([titan2-boot](../../titan2-boot)) runs after the stock bootloader (LK) and starts
+The step-by-step guide for users is [INSTALL-LINUX.md](INSTALL-LINUX.md) (Russian:
+[INSTALL-LINUX.ru.md](INSTALL-LINUX.ru.md)); this page describes how the dual boot works.
+
+A boot menu ([titan2-boot](https://github.com/Serlk/titan2-boot)) runs after the stock bootloader (LK) and starts
 either Android or mainline Linux. LK, the preloader and slot B are not touched. Linux gets a
 partition of its own, `linux`, carved from the end of `userdata`.
 
