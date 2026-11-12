@@ -48,7 +48,7 @@ v3.24, tested on one phone (Titan 2, firmware V01.00.14, crDroid 16 as the Andro
 | function | state | notes |
 |---|---|---|
 | Battery level | **Works** | SH366100 fuel gauge: percentage, current, voltage, temperature |
-| Charging | **Works** | USB PD (9 V contract) and USB-A chargers at 1.5 A into the battery, PC ports with BC1.2 detection; charging also in sleep (500 mA). Charge voltage 4.35 V (stock uses 4.45 V, so slightly less capacity); battery temperature window 5-45 °C with a reduced current below 15 °C |
+| Charging | **Works** | USB PD chargers (9 V contract, up to 1.5 A input) and USB-A chargers, PC ports with BC1.2 detection; up to 2.05 A into the battery with a charge voltage of 4.45 V, the factory values (DT `all`); charging also in sleep (500 mA). Battery temperature window 5-45 °C with a reduced current below 15 °C |
 | Sleep (s2idle) | **Partly** | enters and resumes reliably, wakes on RTC alarm, modem and Wi-Fi; the phone draws **about 80 mA asleep** because the deepest state (26 MHz clock off) is not reached yet. Automatic sleep management is experimental |
 | CPU frequency and thermal | **Works** | eight cores up to 2.5 GHz, thermal zones, CPU idle states |
 
