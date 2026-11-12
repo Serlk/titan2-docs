@@ -8,7 +8,7 @@ directory where you saved your partitions before the installation (with `SHA256S
 - From the titan2-boot menu: choose **Fastboot** with the volume keys, start it with power.
 - From Android: `adb reboot bootloader`.
 - If the phone does not boot, hangs or loops: hold **power for about 15 s** (it turns off), then
-  hold **volume UP + power** until the "Select Boot Mode" menu; volume up selects, volume down
+  hold **power + Func1** until the "Select Boot Mode" menu; volume up selects, volume down
   confirms; choose **Fastboot Mode**.
 - Check: `fastboot devices` lists the phone as `fastboot`.
 

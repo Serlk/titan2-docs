@@ -68,10 +68,9 @@ the same DRM/GPU stack but we have not tested them.
 
 **Getting into fastboot** at any time: from the boot menu choose **Fastboot**; from Android
 `adb reboot bootloader`; from Linux `t2-reboot bootloader`. If nothing boots: hold **Power
-for about 15 s** until the phone is off, then hold **Volume Up + Power** until the bootloader
+for about 15 s** until the phone is off, then hold **Power + Func1** until the bootloader
 menu ("Select Boot Mode") appears, select **Fastboot Mode** (volume up moves, volume down
-confirms). The TWRP documentation describes **Power + Func1** for the same bootloader menu; if
-one combination does not bring it up, try the other. `fastboot devices` must list the phone.
+confirms). `fastboot devices` must list the phone.
 
 ## 5. Installation
 
