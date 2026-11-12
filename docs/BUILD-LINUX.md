@@ -29,7 +29,7 @@ What you end up with:
 | `out/mainline-build/` (kernel `Image.gz`, DTBs, modules) | `scripts/build-mainline.sh` | used by the next two |
 | `out/bootmenu-dualboot/boot.img` | `scripts/make-bootmenu.sh` | partition `boot_a` |
 | `out/linux-root/linux.img` | `scripts/make-linux-root.sh` | partition `linux` (created during the installation) |
-| `out/t2-repo/` (optional) | `scripts/build-mesa.sh`, `scripts/build-libcamera.sh`, `scripts/t2-repo.sh` | packages for the root file system |
+| `out/t2-repo/` (optional) | `scripts/t2-repo.sh` (our aports), titan2-camera's `scripts/build-libcamera.sh` | packages for the root file system |
 
 ## 2. Host requirements
 
@@ -58,7 +58,23 @@ git clone https://android.googlesource.com/platform/system/tools/mkbootimg tools
 `--depth 1` is fine for the kernel clone if you only build it. Use the heads of `titan2-linux`,
 `titan2-boot` and `titan2-tools` from the same date: the boot menu hands memory and firmware
 information over to the kernel, and an old menu with a new kernel can leave Wi-Fi without its
-memory pool.
+memory pool. **Kernels from 2026-11-12 on need titan2-boot from 2026-11-12 or newer** (the commit
+"take the reserved-memory rules from the mainline DTB"): their Wi-Fi device tree asks the menu to
+turn LK's Wi-Fi pool into a restricted DMA pool (`titan2,lk-refs`), which older menus ignore, and
+the Wi-Fi driver then refuses the pool. The same menu version scrolls the "Linux partition" list
+and shows up to 24 entries (older: 12).
+
+The optional parts (section 5) are separate repositories; clone the ones you want next to
+`titan2-tools` (the paths below assume `../titan2-camera`, `../titan2-fingerprint`,
+`../titan2-gnss`):
+
+```sh
+cd ..
+git clone https://github.com/Serlk/titan2-camera
+git clone https://github.com/Serlk/titan2-fingerprint
+git clone https://github.com/Serlk/titan2-gnss
+cd titan2-tools
+```
 
 ## 4. Toolchain and build container
 
@@ -82,10 +98,13 @@ make -C tools CC=$PWD/toolchains/clang-r574158/bin/clang     # small static help
 scripts/build-mainline.sh                  # -> out/mainline-build
 ```
 
-It runs `make defconfig`, merges `configs/mainline-titan2.config`, and builds `Image.gz`,
-every `mt6878-unihertz-titan2*.dtb` of the tree and the modules (installed stripped into
-`out/mainline-build/modules/lib/modules/<version>`). Variables: `SRC=linux` (the kernel tree),
-`O=out/mainline-build` (build directory), `JOBS=4`, `MODULES=0` (kernel and DTBs only).
+It runs `make defconfig`, merges `configs/mainline-titan2.config` (and the `FRAGMENTS`, below),
+and builds `Image.gz`, every `mt6878-unihertz-titan2*.dtb` of the tree and the modules
+(installed stripped into `out/mainline-build/modules/lib/modules/<version>`). Variables:
+`SRC=linux` (the kernel tree, inside titan2-tools), `O=out/mainline-build` (build directory),
+`JOBS=4`, `MODULES=0` (kernel and DTBs only), `FRAGMENTS="<file> ..."` (more config fragments,
+merged after the base config in the order given; paths relative to the current directory, may be
+outside titan2-tools).
 
 Device tree variants (one menu entry each):
 
@@ -94,7 +113,7 @@ Device tree variants (one menu entry each):
 | `mt6878-unihertz-titan2-all.dtb` (`all`) | **everything that works**: display (mediatek-drm), GPU, Wi-Fi, Bluetooth, modem, audio, charger, sensors. Use this one. |
 | `mt6878-unihertz-titan2-all-fb.dtb` (`all-fb`) | the same, but the display stays on the bootloader's framebuffer (simplefb). Fallback when the screen stays black. |
 | `mt6878-unihertz-titan2.dtb` (`full`) | the base: framebuffer display, keyboard, touch, buttons, storage, USB, PMIC, fuel gauge. No radio, no GPU. The safest entry. |
-| `-all-iommu` | development: the display behind the IOMMU. Shows garbage, do not use. |
+| `-all-iommu` | development, only with the camera series: the display behind the IOMMU. Shows garbage, do not use. |
 | `-drm`, `-gpu`, `-wifi`, `-modem`, `-audio`, `-pd`, `-dvfs`, `-idle`, `-jpeg`, `-charger-*` | single-subsystem test variants for development |
 
 Do not edit the kernel tree while a build runs (the container builds whatever is on disk at
@@ -102,26 +121,31 @@ that moment), and give parallel builds their own `O=` directories.
 
 ### With the optional features
 
-Camera, fingerprint and GNSS live in their own repositories. Each carries its kernel part as a
-patch series against the `titan2` branch and a config fragment; the README of each repository
-names the exact files. The steps are the same for all three, for example the camera:
+Camera, fingerprint and GNSS are not in titan2-linux. Each lives in its own repository, which
+carries its kernel part as a patch series against the `titan2` branch (`kernel/patches/*.patch`,
+made with `git format-patch` on `titan2` commit `50a22e5003dd`) and a config fragment
+(`kernel/<name>.config`); its `kernel/README.md` has the details. Apply the series on a local
+branch of your `titan2` checkout and pass the fragments to the build:
 
 ```sh
-git clone https://github.com/Serlk/titan2-camera
 cd linux
-git checkout -b titan2-local titan2
-git am ../titan2-camera/<kernel patch directory>/*.patch      # path: see the titan2-camera README
+git checkout -b titan2-local titan2           # or the base commit: git checkout -b titan2-local 50a22e5003dd
+git am ../../titan2-camera/kernel/patches/*.patch
+git am ../../titan2-fingerprint/kernel/patches/*.patch
+git am ../../titan2-gnss/kernel/patches/*.patch
 cd ..
-cp configs/mainline-titan2.config configs/mainline-titan2.config.orig
-cat titan2-camera/<config fragment> >> configs/mainline-titan2.config
-O=out/mainline-build scripts/build-mainline.sh
+FRAGMENTS="../titan2-camera/kernel/titan2-camera.config \
+    ../titan2-fingerprint/kernel/titan2-fingerprint.config \
+    ../titan2-gnss/kernel/titan2-gnss.config" \
+    scripts/build-mainline.sh
 ```
 
-`scripts/build-mainline.sh` merges only `configs/mainline-titan2.config`, so the fragment is
-appended to it (later lines win in the merge). Several features can be stacked: apply the series
-one after another (camera, then GNSS, then fingerprint) and append each fragment. If a series
-does not apply, your `titan2` checkout is not the one the series was made for: check out the base
-commit named in that repository's README.
+Take only the lines of the parts you want; the three series touch different hunks and apply one
+after another (tested in the order camera, fingerprint, gnss). A fragment without its series is
+harmless but has no effect (its options have no Kconfig entry and are dropped). If `git am`
+stops on a newer `titan2`, run `git am --abort` and start the local branch from the base commit
+named above. The camera series adds the cameras to the `all` DT; the fingerprint and GNSS series
+add their nodes to the base board and the Wi-Fi DT.
 
 ## 6. The initramfs
 
@@ -139,26 +163,42 @@ every other UFS partition read-only with a one-way kernel lock (see
 **empty password** (SSH is then reachable over the USB cable and, once Wi-Fi is up, over Wi-Fi
 too). Always pass a key.
 
-## 7. Packages: Mesa, libcamera (recommended / optional)
+## 7. Packages: your own apk repository (optional)
 
-Alpine v3.24 has no Mesa that supports the phone's Mali-G615 (Valhall v11); without our build
-the desktop renders on the CPU (llvmpipe). **Mesa 26.3.0** is the first release with the G615;
-`scripts/build-mesa.sh` builds it from Alpine's APKBUILD plus a few fixes (panfrost for
-OpenGL ES, panvk for Vulkan, llvmpipe/lavapipe as fallback):
+Packages that are not in Alpine v3.24 are built into your own signed apk repository
+`out/t2-repo`, which the root image build takes as `LOCAL_REPO`:
 
 ```sh
-scripts/build-mesa.sh build          # hours; -> out/mesa/packages/aports/aarch64
-scripts/build-libcamera.sh build     # only for the camera; -> out/libcamera/packages/aports/aarch64
-scripts/t2-repo.sh build             # one signed index over all of them -> out/t2-repo
+scripts/t2-repo.sh keygen                  # once: out/t2-repo-keys/t2-repo.rsa(.pub); keep it
+scripts/t2-repo.sh aport tools/aports/titan2-vendor-runtime \
+    ../titan2-fingerprint/aports/titan2-fingerprint \
+    ../titan2-gnss/aports/titan2-gnss ../titan2-gnss/aports/titan2-epo   # -> out/t2-packages
+scripts/t2-repo.sh build                   # one signed index -> out/t2-repo
 scripts/t2-repo.sh list
 ```
 
-The first package build creates your own signing key in `out/atl/build-keys/`
-(`titan2-atl.rsa`, `.pub`); the root image trusts that public key. Keep it if you want to
-update the packages on the phone later. `build-mesa.sh status|clean` and
-`build-libcamera.sh status|clean` show and remove the build trees.
-`scripts/build-atl.sh` builds the Android Translation Layer (running some Android apps as
-Linux programs); that is experimental and not needed for anything on this page.
+`aport` builds aarch64 packages in an `alpine` arm64 container, so the PC needs qemu-user binfmt
+support for aarch64 (e.g. the `qemu-user-static` package of your distribution). The image
+trusts the public key `out/t2-repo/t2-repo.rsa.pub`; keep the key pair if you want to update
+the packages on the phone later.
+
+- **Camera**: titan2-camera's `scripts/build-libcamera.sh build` builds the patched libcamera
+  (hours in emulation, host kernel 6.7 or newer). Sign it with the same key and put the output
+  inside titan2-tools so that `t2-repo.sh build` can index it:
+
+  ```sh
+  (cd ../titan2-camera && TITAN2_TOOLS=../titan2-tools KEYS=../titan2-tools/out/t2-repo-keys \
+      OUT=../titan2-tools/out/libcamera scripts/build-libcamera.sh build)
+  EXTRA_APK_DIRS=out/libcamera/packages/aports/aarch64 scripts/t2-repo.sh build
+  ```
+
+- **Fingerprint and GNSS** also need `bionic_translation` with the patches in
+  `tools/titan2-vendor-runtime/patches/bionic_translation` (see that README); build it from
+  Alpine's aport with these patches and add the `.apk` files with `EXTRA_APK_DIRS=` as above.
+- **Mesa**: Alpine v3.24 has no Mesa that supports the phone's Mali-G615 (Valhall v11). Mesa
+  26.3.0 is the first release with the G615; a build script for it is not published yet. Without
+  it the desktop renders on the CPU (llvmpipe). If you build Mesa 26.3 packages yourself, add them
+  with `EXTRA_APK_DIRS=`; the image build upgrades the Mesa packages from `LOCAL_REPO`.
 
 ## 8. The root file system (`linux.img`)
 
@@ -183,17 +223,30 @@ Variables:
 |---|---|
 | `KO=out/mainline-build` | the kernel build to install |
 | `SIZE=8G` | size of the ext4 before it is grown to the whole partition on the phone |
-| `VARIANTS="all all-fb full"` | which DT variants get an entry (default: all built ones) |
+| `VARIANTS="all all-fb full"` | which DT variants get an entry, in menu order (default: `all`, `all-fb`, `full`, then the other built ones) |
+| `DEFAULT=all` | the default entry of `/boot/extlinux/extlinux.conf` (labels are the variant names) |
 | `GFX=1` (default) | graphics: niri, foot, alacritty, rofi, Xwayland bridge, weston/cage for tests, iio-sensor-proxy, BlueZ |
 | `LOCAL_REPO=out/t2-repo` | your package repository; its Mesa (and with `CAMERA=1` libcamera) replace Alpine's |
-| `CAMERA=1` | camera: libcamera, PipeWire + WirePlumber, portals, GNOME Snapshot, qcam (needs libcamera in `LOCAL_REPO` and a kernel with the camera series) |
+| `CAMERA=1 CAMERA_DIR=../titan2-camera` | camera: libcamera, PipeWire + WirePlumber, portals, GNOME Snapshot, qcam (needs our libcamera in `LOCAL_REPO` and a kernel with the camera series) |
+| `FP=1 FP_DIR=../titan2-fingerprint` | fingerprint packages (needs them, `titan2-vendor-runtime` and `bionic_translation` in `LOCAL_REPO`) |
+| `GNSS=1 GNSS_DIR=../titan2-gnss` | GNSS packages, GeoClue (same requirements as `FP=1`) |
 | `EXTRA_PKGS="..."` | more Alpine packages; the example above adds what the modem, calls and audio need |
 | `AUTHORIZED_KEYS=<file>` | SSH keys for root (see section 6) |
 | `REUSE=1` | keep the already built Alpine image, only redo `/boot` |
 | `OUT=out/linux-root` | output directory |
 
-The optional parts that have their own repositories (GNSS, fingerprint) come with their own
-packages and install instructions; see [INSTALL-LINUX.md](INSTALL-LINUX.md#12-optional-camera-gnss-fingerprint).
+`CAMERA`, `FP` and `GNSS` hand each repository to the image builder: its `netroot/packages` are
+installed, its `netroot/install.d/*.sh` set up its services. Without `*_DIR` the builder looks in
+`external/titan2-<name>` inside titan2-tools. All three kernel and package parts together:
+
+```sh
+LOCAL_REPO=out/t2-repo AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub \
+CAMERA=1 CAMERA_DIR=../titan2-camera FP=1 FP_DIR=../titan2-fingerprint GNSS=1 GNSS_DIR=../titan2-gnss \
+    scripts/make-linux-root.sh
+```
+
+What each part needs on the phone afterwards (files from your own phone, services): see
+[INSTALL-LINUX.md](INSTALL-LINUX.md#12-optional-camera-gnss-fingerprint).
 
 ## 9. The boot menu (`boot_a`)
 

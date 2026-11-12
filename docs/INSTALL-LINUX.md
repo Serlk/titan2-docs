@@ -204,8 +204,9 @@ with a lower priority than Wi-Fi. On the PC this needs forwarding and NAT, for e
   `DEFAULT=ufs` boots straight into the partition's default entry). The default inside "Linux
   partition" is the `DEFAULT <label>` line of `/boot/extlinux/extlinux.conf`; edit it on the
   phone, or let `linux-update.sh` set it (`DEFAULT=all`).
-- Only the first entries fit on the screen (12 or more, depending on the titan2-boot version):
-  `linux-update.sh` puts `all`, `all-fb`, `full` first; `VARIANTS="..."` limits the list.
+- titan2-boot from 2026-11-12 on shows up to 24 entries of the partition and scrolls the list;
+  older menus show only the first 12. `linux-update.sh` and `make-linux-root.sh` put `all`,
+  `all-fb`, `full` first; `VARIANTS="..."` limits the list.
 - If the menu's UFS reader hangs, hold Power for 15 s; Android keeps working (it does not use
   the reader), and its log is in Android's `/sys/fs/pstore/console-ramoops-0` after the reset.
 - A new Android kernel (an Android update that changes `boot`) means: rebuild the menu with
@@ -385,9 +386,9 @@ or images.
 
 | part | repository | state | what you need |
 |---|---|---|---|
-| Cameras (rear IMX766 and Hi-847, front S5KGD1SP) | [titan2-camera](https://github.com/Serlk/titan2-camera) | works: photos with GNOME Snapshot / qcam / `cam`, software image processing; no video recording yet | kernel with the camera series; libcamera from `scripts/build-libcamera.sh`; root image with `CAMERA=1`; for the front sensor an initialisation table made from your own firmware (the repository README says how) |
-| GNSS + A-GPS | [titan2-gnss](https://github.com/Serlk/titan2-gnss) | works: fix, position through GeoClue; A-GPS data downloaded at run time; time to first fix not measured yet | kernel with the GNSS series; the vendor runtime from titan2-tools; the GNSS daemon and HAL from your own `vendor_a`/`system_a` |
-| Fingerprint | [titan2-fingerprint](https://github.com/Serlk/titan2-fingerprint) | **not usable yet**: the TEE and the HAL start, but the HAL does not react to the touch interrupt, so no finger is detected | kernel with the fingerprint series; the vendor runtime; the TEE client and HAL from your own stock `vendor_a`/`system_a` |
+| Cameras (rear IMX766 and Hi-847, front S5KGD1SP) | [titan2-camera](https://github.com/Serlk/titan2-camera) | works: photos with GNOME Snapshot / qcam / `cam`, software image processing; no video recording yet | kernel `titan2` + the repository's `kernel/patches` (`git am`) and `kernel/titan2-camera.config` (BUILD-LINUX.md section 5); libcamera from that repository's `scripts/build-libcamera.sh`; root image with `CAMERA=1`; for the front sensor its firmware patch made from your own device's firmware (not distributed; see the repository's `kernel/README.md`) |
+| GNSS + A-GPS | [titan2-gnss](https://github.com/Serlk/titan2-gnss) | works: fix, position through GeoClue; A-GPS data downloaded at run time; time to first fix not measured yet | kernel `titan2` + the repository's `kernel/patches` and `kernel/titan2-gnss.config`; the vendor runtime from titan2-tools; the GNSS daemon and HAL from your own `vendor_a`/`system_a` |
+| Fingerprint | [titan2-fingerprint](https://github.com/Serlk/titan2-fingerprint) | **not usable yet**: the TEE and the HAL start, but the HAL does not react to the touch interrupt, so no finger is detected | kernel `titan2` + the repository's `kernel/patches` and `kernel/titan2-fingerprint.config`; the vendor runtime; the TEE client and HAL from your own stock `vendor_a`/`system_a` |
 
 The vendor runtime (`t2-vendor-setup`, from titan2-tools) builds a private directory
 (`/var/lib/titan2-vendor`) out of the extracted partitions of section 9, for example

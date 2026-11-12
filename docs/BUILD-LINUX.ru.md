@@ -29,7 +29,7 @@
 | `out/mainline-build/` (ядро `Image.gz`, DTB, модули) | `scripts/build-mainline.sh` | для двух следующих |
 | `out/bootmenu-dualboot/boot.img` | `scripts/make-bootmenu.sh` | раздел `boot_a` |
 | `out/linux-root/linux.img` | `scripts/make-linux-root.sh` | раздел `linux` (создаётся при установке) |
-| `out/t2-repo/` (по желанию) | `scripts/build-mesa.sh`, `scripts/build-libcamera.sh`, `scripts/t2-repo.sh` | пакеты для корневой ФС |
+| `out/t2-repo/` (по желанию) | `scripts/t2-repo.sh` (наши aports), `scripts/build-libcamera.sh` из titan2-camera | пакеты для корневой ФС |
 
 ## 2. Что нужно на ПК
 
@@ -57,7 +57,23 @@ git clone https://android.googlesource.com/platform/system/tools/mkbootimg tools
 
 Если ядро только собирать, достаточно `--depth 1`. Берите `titan2-linux`, `titan2-boot` и
 `titan2-tools` одной даты: меню передаёт ядру сведения о памяти и прошивках, и старое меню с
-новым ядром может оставить Wi-Fi без его области памяти.
+новым ядром может оставить Wi-Fi без его области памяти. **Ядрам начиная с 2026-11-12 нужен
+titan2-boot от 2026-11-12 или новее** (коммит «take the reserved-memory rules from the mainline
+DTB»): их DT Wi-Fi просит меню сделать из пула Wi-Fi от LK restricted DMA pool
+(`titan2,lk-refs`), старые версии меню этого не делают, и драйвер Wi-Fi отказывается от пула.
+Та же версия меню прокручивает список «Linux partition» и показывает до 24 пунктов (старые — 12).
+
+Дополнительные части (раздел 5) — отдельные репозитории; нужные клонируйте рядом с
+`titan2-tools` (пути ниже считают, что это `../titan2-camera`, `../titan2-fingerprint`,
+`../titan2-gnss`):
+
+```sh
+cd ..
+git clone https://github.com/Serlk/titan2-camera
+git clone https://github.com/Serlk/titan2-fingerprint
+git clone https://github.com/Serlk/titan2-gnss
+cd titan2-tools
+```
 
 ## 4. Тулчейн и сборочный контейнер
 
@@ -81,10 +97,13 @@ make -C tools CC=$PWD/toolchains/clang-r574158/bin/clang     # мелкие ст
 scripts/build-mainline.sh                  # -> out/mainline-build
 ```
 
-Скрипт делает `make defconfig`, добавляет `configs/mainline-titan2.config` и собирает
-`Image.gz`, все `mt6878-unihertz-titan2*.dtb` дерева и модули (ставятся без отладочных символов в
-`out/mainline-build/modules/lib/modules/<версия>`). Переменные: `SRC=linux` (дерево ядра),
-`O=out/mainline-build` (каталог сборки), `JOBS=4`, `MODULES=0` (только ядро и DTB).
+Скрипт делает `make defconfig`, добавляет `configs/mainline-titan2.config` (и `FRAGMENTS`, см.
+ниже) и собирает `Image.gz`, все `mt6878-unihertz-titan2*.dtb` дерева и модули (ставятся без
+отладочных символов в `out/mainline-build/modules/lib/modules/<версия>`). Переменные:
+`SRC=linux` (дерево ядра, внутри titan2-tools), `O=out/mainline-build` (каталог сборки),
+`JOBS=4`, `MODULES=0` (только ядро и DTB), `FRAGMENTS="<файл> ..."` (дополнительные фрагменты
+конфига, подмешиваются после базового в указанном порядке; пути относительно текущего каталога,
+могут быть и вне titan2-tools).
 
 Варианты дерева устройств (по пункту меню на каждый):
 
@@ -93,7 +112,7 @@ scripts/build-mainline.sh                  # -> out/mainline-build
 | `mt6878-unihertz-titan2-all.dtb` (`all`) | **всё, что работает**: экран (mediatek-drm), GPU, Wi-Fi, Bluetooth, модем, звук, зарядник, датчики. Пользуйтесь им. |
 | `mt6878-unihertz-titan2-all-fb.dtb` (`all-fb`) | то же, но экран остаётся на фреймбуфере загрузчика (simplefb). Запасной, если экран чёрный. |
 | `mt6878-unihertz-titan2.dtb` (`full`) | база: экран через фреймбуфер, клавиатура, тач, кнопки, накопитель, USB, PMIC, датчик заряда. Без радио и GPU. Самый безопасный пункт. |
-| `-all-iommu` | для разработки: экран за IOMMU. Показывает мусор, не использовать. |
+| `-all-iommu` | для разработки, только с серией камеры: экран за IOMMU. Показывает мусор, не использовать. |
 | `-drm`, `-gpu`, `-wifi`, `-modem`, `-audio`, `-pd`, `-dvfs`, `-idle`, `-jpeg`, `-charger-*` | проверочные варианты по одной подсистеме, для разработки |
 
 Не правьте дерево ядра во время сборки (контейнер собирает то, что лежит на диске в этот
@@ -101,26 +120,31 @@ scripts/build-mainline.sh                  # -> out/mainline-build
 
 ### С дополнительными частями
 
-Камера, отпечаток и GNSS живут в своих репозиториях. В каждом ядерная часть — серия патчей
-поверх ветки `titan2` и фрагмент конфига; точные файлы названы в README каждого репозитория.
-Шаги для всех трёх одинаковые, например для камеры:
+Камеры, отпечатка и GNSS в titan2-linux нет. Каждая часть живёт в своём репозитории, где её
+ядерная часть — серия патчей поверх ветки `titan2` (`kernel/patches/*.patch`, сделана
+`git format-patch` на коммите `titan2` `50a22e5003dd`) и фрагмент конфига (`kernel/<имя>.config`);
+подробности — в её `kernel/README.md`. Наложите серии на локальную ветку вашего `titan2` и
+передайте фрагменты сборке:
 
 ```sh
-git clone https://github.com/Serlk/titan2-camera
 cd linux
-git checkout -b titan2-local titan2
-git am ../titan2-camera/<каталог патчей ядра>/*.patch      # путь — в README titan2-camera
+git checkout -b titan2-local titan2           # или базовый коммит: git checkout -b titan2-local 50a22e5003dd
+git am ../../titan2-camera/kernel/patches/*.patch
+git am ../../titan2-fingerprint/kernel/patches/*.patch
+git am ../../titan2-gnss/kernel/patches/*.patch
 cd ..
-cp configs/mainline-titan2.config configs/mainline-titan2.config.orig
-cat titan2-camera/<фрагмент конфига> >> configs/mainline-titan2.config
-O=out/mainline-build scripts/build-mainline.sh
+FRAGMENTS="../titan2-camera/kernel/titan2-camera.config \
+    ../titan2-fingerprint/kernel/titan2-fingerprint.config \
+    ../titan2-gnss/kernel/titan2-gnss.config" \
+    scripts/build-mainline.sh
 ```
 
-`scripts/build-mainline.sh` подмешивает только `configs/mainline-titan2.config`, поэтому
-фрагмент дописывается в него (при слиянии побеждают более поздние строки). Части можно
-складывать: накладывать серии одну за другой (камера, потом GNSS, потом отпечаток) и дописывать
-каждый фрагмент. Если серия не накладывается, ваш `titan2` не тот, для которого она сделана:
-переключитесь на базовый коммит, указанный в README того репозитория.
+Оставьте строки только нужных частей; три серии трогают разные места и накладываются одна за
+другой (проверено в порядке камера, отпечаток, GNSS). Фрагмент без своей серии безвреден, но ничего
+не меняет (у его опций нет записи в Kconfig, и они отбрасываются). Если `git am` останавливается на
+более новом `titan2`, сделайте `git am --abort` и начните локальную ветку с указанного выше
+базового коммита. Серия камеры добавляет камеры в DT `all`; серии отпечатка и GNSS добавляют свои
+узлы в базовую плату и в DT Wi-Fi.
 
 ## 6. initramfs
 
@@ -137,26 +161,42 @@ e2fsck, …) и проверяет их подписи ключом Alpine из 
 пароль** (SSH тогда доступен по кабелю USB, а после настройки Wi-Fi — и по Wi-Fi). Всегда
 передавайте ключ.
 
-## 7. Пакеты: Mesa, libcamera (рекомендуется / по желанию)
+## 7. Пакеты: свой репозиторий apk (по желанию)
 
-В Alpine v3.24 нет Mesa с поддержкой Mali-G615 телефона (Valhall v11); без нашей сборки рабочий
-стол рисуется процессором (llvmpipe). **Mesa 26.3.0** — первый выпуск с G615;
-`scripts/build-mesa.sh` собирает его по APKBUILD Alpine с несколькими исправлениями (panfrost для
-OpenGL ES, panvk для Vulkan, llvmpipe/lavapipe как запасные):
+Пакеты, которых нет в Alpine v3.24, собираются в ваш собственный подписанный репозиторий apk
+`out/t2-repo`; сборка образа корня берёт его как `LOCAL_REPO`:
 
 ```sh
-scripts/build-mesa.sh build          # часы; -> out/mesa/packages/aports/aarch64
-scripts/build-libcamera.sh build     # только для камеры; -> out/libcamera/packages/aports/aarch64
-scripts/t2-repo.sh build             # общий подписанный индекс -> out/t2-repo
+scripts/t2-repo.sh keygen                  # один раз: out/t2-repo-keys/t2-repo.rsa(.pub); сохраните
+scripts/t2-repo.sh aport tools/aports/titan2-vendor-runtime \
+    ../titan2-fingerprint/aports/titan2-fingerprint \
+    ../titan2-gnss/aports/titan2-gnss ../titan2-gnss/aports/titan2-epo   # -> out/t2-packages
+scripts/t2-repo.sh build                   # общий подписанный индекс -> out/t2-repo
 scripts/t2-repo.sh list
 ```
 
-Первая сборка пакетов создаёт ваш собственный ключ подписи в `out/atl/build-keys/`
-(`titan2-atl.rsa`, `.pub`); образ корня доверяет этому открытому ключу. Сохраните его, если
-захотите потом обновлять пакеты на телефоне. `build-mesa.sh status|clean` и
-`build-libcamera.sh status|clean` показывают и удаляют каталоги сборки. `scripts/build-atl.sh`
-собирает Android Translation Layer (часть Android-приложений как обычные программы Linux) — это
-эксперимент, для шагов на этой странице не нужен.
+`aport` собирает пакеты aarch64 в контейнере `alpine` arm64, поэтому на ПК нужна поддержка
+qemu-user binfmt для aarch64 (например, пакет `qemu-user-static` вашего дистрибутива). Образ
+доверяет открытому ключу `out/t2-repo/t2-repo.rsa.pub`; сохраните пару ключей, если захотите
+потом обновлять пакеты на телефоне.
+
+- **Камера**: `scripts/build-libcamera.sh build` из titan2-camera собирает libcamera с патчами
+  (часы в эмуляции, ядро хоста 6.7 или новее). Подпишите тем же ключом и положите результат внутрь
+  titan2-tools, чтобы `t2-repo.sh build` его проиндексировал:
+
+  ```sh
+  (cd ../titan2-camera && TITAN2_TOOLS=../titan2-tools KEYS=../titan2-tools/out/t2-repo-keys \
+      OUT=../titan2-tools/out/libcamera scripts/build-libcamera.sh build)
+  EXTRA_APK_DIRS=out/libcamera/packages/aports/aarch64 scripts/t2-repo.sh build
+  ```
+
+- **Отпечатку и GNSS** нужен ещё `bionic_translation` с патчами из
+  `tools/titan2-vendor-runtime/patches/bionic_translation` (см. тамошний README): соберите его из
+  aport Alpine с этими патчами и добавьте файлы `.apk` через `EXTRA_APK_DIRS=`, как выше.
+- **Mesa**: в Alpine v3.24 нет Mesa с поддержкой Mali-G615 телефона (Valhall v11). Mesa 26.3.0 —
+  первый выпуск с G615; скрипт его сборки пока не опубликован. Без него рабочий стол рисуется
+  процессором (llvmpipe). Если вы собрали пакеты Mesa 26.3 сами, добавьте их через
+  `EXTRA_APK_DIRS=`; сборка образа обновит пакеты Mesa из `LOCAL_REPO`.
 
 ## 8. Корневая ФС (`linux.img`)
 
@@ -181,17 +221,30 @@ initramfs, все DTB и `/boot/extlinux/extlinux.conf` с пунктом на �
 |---|---|
 | `KO=out/mainline-build` | какую сборку ядра ставить |
 | `SIZE=8G` | размер ext4 до растяжения на весь раздел на телефоне |
-| `VARIANTS="all all-fb full"` | для каких вариантов DT делать пункты (по умолчанию для всех собранных) |
+| `VARIANTS="all all-fb full"` | для каких вариантов DT делать пункты, в порядке меню (по умолчанию `all`, `all-fb`, `full`, затем остальные собранные) |
+| `DEFAULT=all` | пункт по умолчанию в `/boot/extlinux/extlinux.conf` (метки — имена вариантов) |
 | `GFX=1` (по умолчанию) | графика: niri, foot, alacritty, rofi, мост Xwayland, weston/cage для проверок, iio-sensor-proxy, BlueZ |
 | `LOCAL_REPO=out/t2-repo` | ваш репозиторий пакетов; его Mesa (а с `CAMERA=1` и libcamera) заменяют пакеты Alpine |
-| `CAMERA=1` | камера: libcamera, PipeWire + WirePlumber, порталы, GNOME Snapshot, qcam (нужны libcamera в `LOCAL_REPO` и ядро с серией камеры) |
+| `CAMERA=1 CAMERA_DIR=../titan2-camera` | камера: libcamera, PipeWire + WirePlumber, порталы, GNOME Snapshot, qcam (нужны наша libcamera в `LOCAL_REPO` и ядро с серией камеры) |
+| `FP=1 FP_DIR=../titan2-fingerprint` | пакеты отпечатка (нужны они, `titan2-vendor-runtime` и `bionic_translation` в `LOCAL_REPO`) |
+| `GNSS=1 GNSS_DIR=../titan2-gnss` | пакеты GNSS, GeoClue (требования как у `FP=1`) |
 | `EXTRA_PKGS="..."` | дополнительные пакеты Alpine; в примере выше — то, что нужно модему, звонкам и звуку |
 | `AUTHORIZED_KEYS=<файл>` | ключи SSH для root (см. раздел 6) |
 | `REUSE=1` | взять уже собранный образ Alpine, пересобрать только `/boot` |
 | `OUT=out/linux-root` | каталог результата |
 
-Дополнительные части со своими репозиториями (GNSS, отпечаток) приносят свои пакеты и свои
-инструкции; см. [INSTALL-LINUX.ru.md](INSTALL-LINUX.ru.md#12-по-желанию-камера-gnss-отпечаток).
+`CAMERA`, `FP` и `GNSS` передают сборщику образа соответствующий репозиторий: ставятся пакеты из
+его `netroot/packages`, его `netroot/install.d/*.sh` настраивают службы. Без `*_DIR` сборщик ищет
+`external/titan2-<имя>` внутри titan2-tools. Все три части вместе:
+
+```sh
+LOCAL_REPO=out/t2-repo AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub \
+CAMERA=1 CAMERA_DIR=../titan2-camera FP=1 FP_DIR=../titan2-fingerprint GNSS=1 GNSS_DIR=../titan2-gnss \
+    scripts/make-linux-root.sh
+```
+
+Что нужно каждой части потом на телефоне (файлы с вашего телефона, службы): см.
+[INSTALL-LINUX.ru.md](INSTALL-LINUX.ru.md#12-по-желанию-камера-gnss-отпечаток).
 
 ## 9. Меню загрузки (`boot_a`)
 

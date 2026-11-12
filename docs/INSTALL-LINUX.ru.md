@@ -200,9 +200,9 @@ fastboot reboot
   `DEFAULT=ufs` сразу грузит пункт по умолчанию с раздела). Пункт по умолчанию внутри «Linux
   partition» — строка `DEFAULT <метка>` в `/boot/extlinux/extlinux.conf`; поправьте её на
   телефоне или дайте её выставить `linux-update.sh` (`DEFAULT=all`).
-- На экран помещаются только первые пункты (12 или больше, в зависимости от версии
-  titan2-boot): `linux-update.sh` ставит `all`, `all-fb`, `full` первыми; `VARIANTS="..."`
-  сокращает список.
+- titan2-boot начиная с 2026-11-12 показывает до 24 пунктов раздела и прокручивает список;
+  старые версии меню показывают только первые 12. `linux-update.sh` и `make-linux-root.sh`
+  ставят `all`, `all-fb`, `full` первыми; `VARIANTS="..."` сокращает список.
 - Если читалка UFS меню зависла, держите питание 15 с; Android работает (он читалкой не
   пользуется), а её журнал после сброса — в `/sys/fs/pstore/console-ramoops-0` в Android.
 - Новое ядро Android (обновление Android, меняющее `boot`): пересоберите меню с
@@ -383,9 +383,9 @@ README (как наложить серию, фрагмент конфига, п�
 
 | часть | репозиторий | состояние | что нужно |
 |---|---|---|---|
-| Камеры (задние IMX766 и Hi-847, фронтальная S5KGD1SP) | [titan2-camera](https://github.com/Serlk/titan2-camera) | работает: снимки в GNOME Snapshot / qcam / `cam`, обработка изображения программная; записи видео пока нет | ядро с серией камеры; libcamera из `scripts/build-libcamera.sh`; образ корня с `CAMERA=1`; для фронтального сенсора — таблица инициализации, сделанная из вашей прошивки (как — в README репозитория) |
-| GNSS + A-GPS | [titan2-gnss](https://github.com/Serlk/titan2-gnss) | работает: фикс, координаты через GeoClue; данные A-GPS скачиваются при работе; время до первого фикса ещё не замерено | ядро с серией GNSS; vendor-окружение из titan2-tools; демон GNSS и HAL из ваших `vendor_a`/`system_a` |
-| Отпечаток | [titan2-fingerprint](https://github.com/Serlk/titan2-fingerprint) | **пока не работает**: TEE и HAL запускаются, но HAL не реагирует на прерывание касания, палец не определяется | ядро с серией отпечатка; vendor-окружение; клиент TEE и HAL из ваших стоковых `vendor_a`/`system_a` |
+| Камеры (задние IMX766 и Hi-847, фронтальная S5KGD1SP) | [titan2-camera](https://github.com/Serlk/titan2-camera) | работает: снимки в GNOME Snapshot / qcam / `cam`, обработка изображения программная; записи видео пока нет | ядро `titan2` + `kernel/patches` репозитория (`git am`) и `kernel/titan2-camera.config` (BUILD-LINUX.ru.md, раздел 5); libcamera из `scripts/build-libcamera.sh` того же репозитория; образ корня с `CAMERA=1`; для фронтального сенсора — его патч прошивки, сделанный из прошивки вашего собственного устройства (не распространяется; см. `kernel/README.md` репозитория) |
+| GNSS + A-GPS | [titan2-gnss](https://github.com/Serlk/titan2-gnss) | работает: фикс, координаты через GeoClue; данные A-GPS скачиваются при работе; время до первого фикса ещё не замерено | ядро `titan2` + `kernel/patches` репозитория и `kernel/titan2-gnss.config`; vendor-окружение из titan2-tools; демон GNSS и HAL из ваших `vendor_a`/`system_a` |
+| Отпечаток | [titan2-fingerprint](https://github.com/Serlk/titan2-fingerprint) | **пока не работает**: TEE и HAL запускаются, но HAL не реагирует на прерывание касания, палец не определяется | ядро `titan2` + `kernel/patches` репозитория и `kernel/titan2-fingerprint.config`; vendor-окружение; клиент TEE и HAL из ваших стоковых `vendor_a`/`system_a` |
 
 Vendor-окружение (`t2-vendor-setup` из titan2-tools) собирает закрытый каталог
 (`/var/lib/titan2-vendor`) из распакованных разделов раздела 9, например
