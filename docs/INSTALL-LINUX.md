@@ -166,9 +166,9 @@ fails), but `fastboot flash linux` finds it. Android now starts from scratch: se
 
 ## 6. First boot of Linux
 
-1. Reboot, choose **Linux partition** in the menu, then the entry **Linux ... -all** (the
-   default of a fresh image is the base entry `Linux <version>`, i.e. `full`, which has no
-   Wi-Fi; `all` has everything).
+1. Reboot, choose **Linux partition** in the menu, then the entry **Linux ... -all**. It is the
+   default of a fresh image (`make-linux-root.sh` sets `DEFAULT=all`) and has everything; the
+   base entry `full` has no Wi-Fi.
 2. The first boot runs the package scripts and grows the file system to the whole partition in
    the background; it takes a few minutes. Text console output appears on the screen.
 3. Connect the USB cable. The phone appears as a USB network adapter and gives the PC an address

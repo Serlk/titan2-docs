@@ -29,13 +29,15 @@ What you end up with:
 | `out/mainline-build/` (kernel `Image.gz`, DTBs, modules) | `scripts/build-mainline.sh` | used by the next two |
 | `out/bootmenu-dualboot/boot.img` | `scripts/make-bootmenu.sh` | partition `boot_a` |
 | `out/linux-root/linux.img` | `scripts/make-linux-root.sh` | partition `linux` (created during the installation) |
-| `out/t2-repo/` (optional) | `scripts/t2-repo.sh` (our aports), titan2-camera's `scripts/build-libcamera.sh` | packages for the root file system |
+| `out/t2-repo/` (optional, needed for the GPU) | `scripts/t2-repo.sh` (our aports), `scripts/build-mesa.sh` (Mesa 26.3), titan2-camera's `scripts/build-libcamera.sh` | packages for the root file system |
 
 ## 2. Host requirements
 
 - A Linux PC (x86_64) with **Docker** (the kernel build, the image tools and the package
-  builds all run in containers). The package builds (Mesa, libcamera) run aarch64 in emulation
-  and need host kernel 6.7 or newer.
+  builds all run in containers). The package builds run aarch64 in emulation: our aports and
+  Mesa in `alpine` arm64 containers, which need qemu-user binfmt support for aarch64 (e.g. the
+  `qemu-user-static` package; an arm64 PC needs nothing extra), libcamera with host kernel 6.7
+  or newer.
 - `git`, `ssh`, `adb` and `fastboot` (Android platform-tools), `img2simg` (android-tools, makes
   the sparse `linux.img`), `e2fsprogs` (`e2fsck` for the root image, `debugfs` for the factory
   files), and for the optional factory-file extraction `lpunpack` (android-tools) and
@@ -174,6 +176,7 @@ make -C ../titan2-fingerprint dist; make -C ../titan2-gnss dist     # their sour
 scripts/t2-repo.sh aport tools/aports/titan2-vendor-runtime \
     ../titan2-fingerprint/aports/titan2-fingerprint \
     ../titan2-gnss/aports/titan2-gnss ../titan2-gnss/aports/titan2-epo   # -> out/t2-packages
+scripts/build-mesa.sh build                # Mesa 26.3 for the GPU (hours) -> out/t2-packages
 scripts/t2-repo.sh build                   # one signed index -> out/t2-repo
 scripts/t2-repo.sh list
 ```
@@ -197,9 +200,15 @@ the packages on the phone later.
   `tools/titan2-vendor-runtime/patches/bionic_translation` (see that README); build it from
   Alpine's aport with these patches and add the `.apk` files with `EXTRA_APK_DIRS=` as above.
 - **Mesa**: Alpine v3.24 has no Mesa that supports the phone's Mali-G615 (Valhall v11). Mesa
-  26.3.0 is the first release with the G615; a build script for it is not published yet. Without
-  it the desktop renders on the CPU (llvmpipe). If you build Mesa 26.3 packages yourself, add them
-  with `EXTRA_APK_DIRS=`; the image build upgrades the Mesa packages from `LOCAL_REPO`.
+  26.3.0 is the first release with the G615. `scripts/build-mesa.sh build` builds it from
+  Alpine's aport (pinned commit, Mesa archive checked against its sha512) with
+  `tools/mesa/APKBUILD.diff` (panfrost/panvk plus the software fallback only) and
+  `patches/mesa/*.patch`, in an `alpine:3.24` arm64 container: several hours under emulation and
+  about 25 GB of disk. The packages are signed with your `out/t2-repo-keys/t2-repo.rsa` (created
+  if it does not exist) and copied to `out/t2-packages/aarch64`, so `t2-repo.sh build` indexes
+  them; the image build then upgrades the Mesa packages from `LOCAL_REPO`. Without this step the
+  desktop renders on the CPU (llvmpipe). `scripts/build-mesa.sh fetch` only downloads and
+  prepares the sources, to check them first.
 
 ## 8. The root file system (`linux.img`)
 

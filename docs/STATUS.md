@@ -35,7 +35,7 @@ v3.24, tested on one phone (Titan 2, firmware V01.00.14, crDroid 16 as the Andro
 | function | state | notes |
 |---|---|---|
 | Main display | **Works** | 1440x1440 command-mode DSI panel with mediatek-drm, backlight, on/off (DPMS). The display IOMMU is off (with it on, the picture is garbage); `all-fb` keeps the bootloader framebuffer as a fallback |
-| GPU | **Works** | Mali-G615 with panthor; OpenGL ES with panfrost and Vulkan with panvk need our Mesa 26.3 build (the first Mesa release with this GPU); without it, software rendering |
+| GPU | **Works** | Mali-G615 with panthor; hardware rendering (OpenGL ES with panfrost, Vulkan with panvk) needs our Mesa 26.3 build from titan2-tools (`scripts/build-mesa.sh`; 26.3 is the first Mesa release with this GPU); without it, CPU rendering (llvmpipe) |
 | Keyboard, touchscreen, keyboard touchpad | **Works** | Sym and Fn reach Wayland as KEY_PROG3/KEY_PROG4; no Esc key on the hardware |
 | Buttons, vibration | **Works** | power, volume, side keys; vibration motor |
 | Loudspeaker, earpiece, microphone | **Works** | loudspeaker needs `frsm-spk1.bin` from your phone (INSTALL-LINUX.md section 9); earpiece and microphone are used in calls |

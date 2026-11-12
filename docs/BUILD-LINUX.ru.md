@@ -29,13 +29,14 @@
 | `out/mainline-build/` (ядро `Image.gz`, DTB, модули) | `scripts/build-mainline.sh` | для двух следующих |
 | `out/bootmenu-dualboot/boot.img` | `scripts/make-bootmenu.sh` | раздел `boot_a` |
 | `out/linux-root/linux.img` | `scripts/make-linux-root.sh` | раздел `linux` (создаётся при установке) |
-| `out/t2-repo/` (по желанию) | `scripts/t2-repo.sh` (наши aports), `scripts/build-libcamera.sh` из titan2-camera | пакеты для корневой ФС |
+| `out/t2-repo/` (по желанию, нужен для GPU) | `scripts/t2-repo.sh` (наши aports), `scripts/build-mesa.sh` (Mesa 26.3), `scripts/build-libcamera.sh` из titan2-camera | пакеты для корневой ФС |
 
 ## 2. Что нужно на ПК
 
 - ПК с Linux (x86_64) и **Docker** (ядро, утилиты образов и пакеты собираются в контейнерах).
-  Пакеты (Mesa, libcamera) собираются под aarch64 в эмуляции, для этого нужно ядро хоста 6.7 или
-  новее.
+  Пакеты собираются под aarch64 в эмуляции: наши aports и Mesa — в контейнерах `alpine` arm64,
+  для них нужна поддержка qemu-user binfmt для aarch64 (например, пакет `qemu-user-static`; на ПК
+  с arm64 ничего не нужно), libcamera — с ядром хоста 6.7 или новее.
 - `git`, `ssh`, `adb` и `fastboot` (Android platform-tools), `img2simg` (android-tools, делает
   разреженный `linux.img`), `e2fsprogs` (`e2fsck` для образа корня, `debugfs` для заводских
   файлов), а для извлечения заводских файлов — `lpunpack` (android-tools) и `erofs-utils`
@@ -172,6 +173,7 @@ make -C ../titan2-fingerprint dist; make -C ../titan2-gnss dist     # их ар�
 scripts/t2-repo.sh aport tools/aports/titan2-vendor-runtime \
     ../titan2-fingerprint/aports/titan2-fingerprint \
     ../titan2-gnss/aports/titan2-gnss ../titan2-gnss/aports/titan2-epo   # -> out/t2-packages
+scripts/build-mesa.sh build                # Mesa 26.3 для GPU (часы) -> out/t2-packages
 scripts/t2-repo.sh build                   # общий подписанный индекс -> out/t2-repo
 scripts/t2-repo.sh list
 ```
@@ -195,9 +197,15 @@ qemu-user binfmt для aarch64 (например, пакет `qemu-user-static`
   `tools/titan2-vendor-runtime/patches/bionic_translation` (см. тамошний README): соберите его из
   aport Alpine с этими патчами и добавьте файлы `.apk` через `EXTRA_APK_DIRS=`, как выше.
 - **Mesa**: в Alpine v3.24 нет Mesa с поддержкой Mali-G615 телефона (Valhall v11). Mesa 26.3.0 —
-  первый выпуск с G615; скрипт его сборки пока не опубликован. Без него рабочий стол рисуется
-  процессором (llvmpipe). Если вы собрали пакеты Mesa 26.3 сами, добавьте их через
-  `EXTRA_APK_DIRS=`; сборка образа обновит пакеты Mesa из `LOCAL_REPO`.
+  первый выпуск с G615. `scripts/build-mesa.sh build` собирает её из aport Alpine (закреплённый
+  коммит, архив Mesa сверяется с его sha512) с `tools/mesa/APKBUILD.diff` (только panfrost/panvk
+  и программный запасной путь) и `patches/mesa/*.patch` в контейнере `alpine:3.24` arm64:
+  несколько часов в эмуляции и около 25 ГБ на диске. Пакеты подписываются вашим ключом
+  `out/t2-repo-keys/t2-repo.rsa` (создаётся, если его нет) и копируются в
+  `out/t2-packages/aarch64`, поэтому `t2-repo.sh build` их индексирует; сборка образа затем
+  обновит пакеты Mesa из `LOCAL_REPO`. Без этого шага рабочий стол рисуется процессором
+  (llvmpipe). `scripts/build-mesa.sh fetch` только скачивает и готовит исходники, чтобы сначала
+  их проверить.
 
 ## 8. Корневая ФС (`linux.img`)
 
